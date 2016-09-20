@@ -72,8 +72,15 @@ class GlobalTemps:
         return json.dumps([{ 'year': i+1880, 'average': x['sum'] / x['count'] if x['count'] > 0 else None } for i, x in enumerate(avgs)])
 
     @cherrypy.expose
-    def latitude_averages(self, year_start=1880, year_end=3000, long_start=0.0, long_end=360, month_start=1, month_end=12):
+    def latitude_averages(self, year_start=1880, year_end=3000, long_start=0.0, long_end=360, month_start=1, month_end=12, *args, **kwargs):
         '''Distribution  of averages across latitudes'''
+
+        year_start = int(year_start)
+        year_end = int(year_end)
+        long_start = float(long_start)
+        long_end = float(long_end)
+        month_start = int(month_start)
+        month_end = int(month_end)
 
         cherrypy.response.headers['Content-Type'] = 'application/json'
 
