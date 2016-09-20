@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Exploratory Visualization Example</title>
+
+    <link href="vendor/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="vendor/bootstrap/dist/css/bootstrap-theme.min.css" rel="stylesheet" />
+
+    <style type="text/css">
+      .yearly-average-trend-line {
+        fill: none;
+        stroke: #000;
+        stroke-width: 1.5px;
+      }
+
+      .selection {
+        stroke: none;
+      }
+    </style>
+  </head>
+  <body>
+
+    <div class="container">
+      <div class="row">
+        <div class="col-md-12">
+          <div id="yearly-trend"></div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-md-12">
+          <div id="latitude-averages"></div>
+        </div>
+      </div>
+    </div>
+    
+    <script src="vendor/jquery/dist/jquery.min.js"></script>
+    <script src="vendor/bootstrap/dist/js/bootstrap.min.js"></script>
+    <script src="vendor/d3/d3.min.js"></script>
+    <script src="vendor/topojson/topojson.min.js"></script>
+    <!--<script src="vendor/d3-geo-projection/d3.geo.projection.min.js"></script>-->
+
+    <script type="text/javascript">
+    var yearFilter = [0, 3000],
+        latitudeFilter = [-90, 90];
+
+    function filterQueryString() {
+      return '?year_start=' + yearFilter[0] + '&year_end=' + yearFilter[1] + 
+              '&lat_start=' + latitudeFilter[0] + '&lat_end=' + latitudeFilter[1];
+    }
+
+    var margin = {top: 20, right: 20, bottom: 30, left: 50},
+            width = 960 - margin.left - margin.right,
+            height = 500 - margin.top - margin.bottom;
+
+    var x = d3.scaleLinear()
+              .range([0, width]);
+
+    var y = d3.scaleLinear()
+              //.domain(d3.extent(data, function(d) { return d.average; }))
+              .domain([-0.8, 1.0])
+              .range([height, 0]);
+
+    var xAxis = d3.axisBottom()
+                  .scale(x)
+                  .tickFormat(d3.format(''));
+
+    var yAxis = d3.axisLeft()
+                  .scale(y);
+
+    var line = d3.line()
+                 .x(function(d) { return x(d.year); })
+                 .y(function(d) { return y(d.average); });
+
+    var svg = d3.select('#yearly-trend').append('svg')
+                .attr('width', width + margin.left + margin.right)
+                .attr('height', height + margin.top + margin.bottom)
+                  .append('g')
+                  .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+
+    function updateCharts() {
+      d3.json('/globaltemps/yearly_averages' + filterQueryString(), function(error, data) {
+        x.domain(d3.extent(data, function(d) { return d.year; }));
+
+        d3.select('#yearly-trend .data-path')
+          .datum(data)
+          .transition()
+          .attr('d', line);
+
+        console.log('update complete', error);
+      });
+    }
+
+    function yearlyAverages() {
+
+      d3.json('/globaltemps/yearly_averages', function(error, data) {
+        x.domain(d3.extent(data, function(d) { return d.year; }));
+
+        svg.append('g')
+            .attr('class', 'x axis')
+            .attr('transform', 'translate(0,' + height + ')')
+            .call(xAxis);
+
+        svg.append('g')
+            .attr('class', 'y axis')
+            .call(yAxis)
+          .append('text')
+            .attr('transform', 'rotate(-90)')
+            .attr('y', 6)
+            .attr('dy', '.71em')
+            .style('text-anchor', 'end')
+            .text('Temperature Anomoly');
+
+        svg.append('path')
+            .datum(data)
+            .attr('class', 'yearly-average-trend-line data-path')
+            .attr('d', line);
+
+        svg.call(d3.brushX().on('end', function() {
+          if (d3.event.selection) {
+            yearFilter = d3.event.selection.map(function(d) {
+              return Math.round(x.invert(d));
+            });
+          } else {
+            yearFilter = [0, 3000];
+          }
+          updateCharts();
+        }));
+      });
+    }
+
+    function latitudeAverages() {
+      d3.json('/globaltemps/latitude_averages', function(error, data) {
+        var margin = {top: 20, right: 20, bottom: 30, left: 50},
+            width = 960 - margin.left - margin.right,
+            height = 500 - margin.top - margin.bottom;
+
+        var x = d3.scaleLinear()
+                  //.domain(d3.extent(data, function(d) { return d.latitude; }))
+                  .domain([-90, 90])
+                  .range([0, width]);
+
+        var y = d3.scaleLinear()
+                  //.domain(d3.extent(data, function(d) { return d.average; }))
+                  .domain([-0.8, 1.0])
+                  .range([height, 0]);
+
+        var xAxis = d3.axisBottom()
+                      .scale(x)
+                      .tickFormat(d3.format(''));
+
+        var yAxis = d3.axisLeft()
+                      .scale(y);
+
+        var line = d3.line()
+                     .x(function(d) { return x(d.latitude); })
+                     .y(function(d) { return y(d.average); });
+
+        var svg = d3.select('#latitude-averages').append('svg')
+                    .attr('width', width + margin.left + margin.right)
+                    .attr('height', height + margin.top + margin.bottom)
+                      .append('g')
+                      .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+
+        svg.append('g')
+            .attr('class', 'x axis')
+            .attr('transform', 'translate(0,' + height + ')')
+            .call(xAxis);
+
+        svg.append('g')
+            .attr('class', 'y axis')
+            .call(yAxis)
+          .append('text')
+            .attr('transform', 'rotate(-90)')
+            .attr('y', 6)
+            .attr('dy', '.71em')
+            .style('text-anchor', 'end')
+            .text('Temperature Anomoly');
+
+        svg.append('path')
+            .datum(data)
+            .attr('class', 'yearly-average-trend-line')
+            .attr('d', line);
+
+        svg.call(d3.brushX().on('end', function() {
+          if (d3.event.selection) {
+            latitudeFilter = d3.event.selection.map(function(d) {
+              return Math.round(x.invert(d)/2.5)*2.5;
+            });
+          } else {
+            latitudeFilter = [-90, 90];
+          }
+          updateCharts();
+        }));
+      });
+    }
+
+    yearlyAverages();
+    latitudeAverages();
+
+    </script>
+  </body>
+</html>
