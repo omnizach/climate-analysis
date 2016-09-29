@@ -1,3 +1,4 @@
 /client/vendor
 /data
-!/data/global-temps.tsv.gz
+!/data/create_climate_database.py
+.ipynb_checkpoints/
