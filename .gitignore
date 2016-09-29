@@ -1,4 +1,4 @@
 /client/vendor
 /data
-!/data/create_climate_database.py
+!data/create_climate_database.py
 .ipynb_checkpoints/
