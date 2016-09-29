@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Exploratory Visualization Example</title>
+
+    <link href="vendor/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="vendor/bootstrap/dist/css/bootstrap-theme.min.css" rel="stylesheet" />
+
+    <style type="text/css">
+      .data-path {
+        fill: none;
+        /*stroke: #000;*/
+        stroke-width: 1.5px;
+        stroke: url(#temperature-gradient);
+      }
+
+      .selection {
+        stroke: none;
+      }
+    </style>
+  </head>
+  <body>
+
+    <div class="container">
+      <div class="row">
+        <div class="col-md-12">
+          <div id="yearly-trend"></div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-md-12">
+          <div id="latitude-averages"></div>
+        </div>
+      </div>
+    </div>
+    
+    <script src="vendor/jquery/dist/jquery.min.js"></script>
+    <script src="vendor/bootstrap/dist/js/bootstrap.min.js"></script>
+    <script src="vendor/d3/d3.min.js"></script>
+    <script src="vendor/topojson/topojson.min.js"></script>
+    <!--<script src="vendor/d3-geo-projection/d3.geo.projection.min.js"></script>-->
+
+    <script type="text/javascript">
+
+    var yearFilter = [0, 3000],
+        latitudeFilter = [-90, 90];
+
+    function filterQueryString() {
+      return '?years=' + yearFilter[0] + ',' + yearFilter[1] + 
+             '&lats=' + latitudeFilter[0] + ',' + latitudeFilter[1];
+    }
+
+    var yearlyLine, latitudeLine;
+
+    function updateCharts() {
+      d3.selectAll('.data-path')
+        .attr('stroke-opacity', 1)
+        .transition()
+        .attr('stroke-opacity', 0.25);
+
+      d3.json('/avg_temps_by_year' + filterQueryString(), function(error, data) {
+        d3.select('#yearly-trend .data-path')
+          .datum(data)
+          .transition()
+          .attr('d', yearlyLine)
+          .attr('stroke-opacity', 1);
+      });
+
+      d3.json('/avg_temps_by_latitude' + filterQueryString(), function(error, data) {
+        d3.select('#latitude-averages .data-path')
+          .datum(data)
+          .transition()
+          .attr('d', latitudeLine)
+          .attr('stroke-opacity', 1);
+      });
+    }
+
+    function yearlyAverages() {
+
+      d3.json('/avg_temps_by_year', function(error, data) {
+        var margin = {top: 20, right: 20, bottom: 30, left: 50},
+            width = 960 - margin.left - margin.right,
+            height = 500 - margin.top - margin.bottom;
+
+        var x = d3.scaleLinear()
+                  .range([0, width]);
+
+        var y = d3.scaleLinear()
+                  //.domain(d3.extent(data, function(d) { return d.average; }))
+                  .domain([-0.8, 1.0])
+                  .range([height, 0]);
+
+        var xAxis = d3.axisBottom()
+                      .scale(x)
+                      .tickFormat(d3.format(''));
+
+        var yAxis = d3.axisLeft()
+                      .scale(y);
+
+        yearlyLine = d3.line()
+                       .defined(function(d) { return !isNaN(d.temp); })
+                       .x(function(d) { return x(d.year); })
+                       .y(function(d) { return y(d.temp); });
+
+        var svg = d3.select('#yearly-trend').append('svg')
+                    .attr('width', width + margin.left + margin.right)
+                    .attr('height', height + margin.top + margin.bottom)
+                      .append('g')
+                      .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+
+        svg.append("linearGradient")
+            .attr("id", "temperature-gradient")
+            .attr("gradientUnits", "userSpaceOnUse")
+            .attr("x1", 0).attr("y1", y(-0.8))
+            .attr("x2", 0).attr("y2", y(1.0))
+          .selectAll("stop")
+            .data([
+              {offset: "0%", color: "steelblue"},
+              {offset: "50%", color: "gray"},
+              {offset: "100%", color: "red"}
+            ])
+          .enter().append("stop")
+            .attr("offset", function(d) { return d.offset; })
+            .attr("stop-color", function(d) { return d.color; });
+
+        x.domain(d3.extent(data, function(d) { return d.year; }));
+
+        svg.append('g')
+            .attr('class', 'x axis')
+            .attr('transform', 'translate(0,' + height + ')')
+            .call(xAxis);
+
+        svg.append('g')
+            .attr('class', 'y axis')
+            .call(yAxis)
+          .append('text')
+            .attr('transform', 'rotate(-90)')
+            .attr('y', 6)
+            .attr('dy', '.71em')
+            .style('text-anchor', 'end')
+            .text('Temperature Anomoly');
+
+        svg.append('path')
+            .datum(data)
+            .attr('class', 'yearly-average-trend-line data-path')
+            .attr('d', yearlyLine);
+
+        svg.call(d3.brushX().on('end', function() {
+          if (d3.event.selection) {
+            yearFilter = d3.event.selection.map(function(d) {
+              return Math.round(x.invert(d));
+            });
+          } else {
+            yearFilter = [0, 3000];
+          }
+          updateCharts();
+        }));
+      });
+    }
+
+    function latitudeAverages() {
+      d3.json('/avg_temps_by_latitude', function(error, data) {
+        var margin = {top: 20, right: 20, bottom: 30, left: 50},
+            width = 960 - margin.left - margin.right,
+            height = 500 - margin.top - margin.bottom;
+
+        var x = d3.scaleLinear()
+                  //.domain(d3.extent(data, function(d) { return d.latitude; }))
+                  .domain([-90, 90])
+                  .range([0, width]);
+
+        var y = d3.scaleLinear()
+                  //.domain(d3.extent(data, function(d) { return d.average; }))
+                  .domain([-0.8, 1.0])
+                  .range([height, 0]);
+
+        var xAxis = d3.axisBottom()
+                      .scale(x)
+                      .tickFormat(d3.format(''));
+
+        var yAxis = d3.axisLeft()
+                      .scale(y);
+
+        latitudeLine = d3.line()
+                         .defined(function(d) { return !isNaN(d.temp); })
+                         .x(function(d) { return x(d.latitude); })
+                         .y(function(d) { return y(d.temp); });
+
+        var svg = d3.select('#latitude-averages').append('svg')
+                    .attr('width', width + margin.left + margin.right)
+                    .attr('height', height + margin.top + margin.bottom)
+                      .append('g')
+                      .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+
+        svg.append('g')
+            .attr('class', 'x axis')
+            .attr('transform', 'translate(0,' + height + ')')
+            .call(xAxis);
+
+        svg.append('g')
+            .attr('class', 'y axis')
+            .call(yAxis)
+          .append('text')
+            .attr('transform', 'rotate(-90)')
+            .attr('y', 6)
+            .attr('dy', '.71em')
+            .style('text-anchor', 'end')
+            .text('Temperature Anomoly');
+
+        svg.append('path')
+            .datum(data)
+            .attr('class', 'latitude-average-trend-line data-path')
+            .attr('d', latitudeLine);
+
+        svg.call(d3.brushX().on('end', function() {
+          if (d3.event.selection) {
+            latitudeFilter = d3.event.selection.map(function(d) {
+              return Math.round(x.invert(d)/2.5)*2.5;
+            });
+          } else {
+            latitudeFilter = [-90, 90];
+          }
+          updateCharts();
+        }));
+      });
+    }
+
+    yearlyAverages();
+    latitudeAverages();
+
+    </script>
+  </body>
+</html>
